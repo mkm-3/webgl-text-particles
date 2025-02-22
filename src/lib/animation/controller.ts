@@ -1,3 +1,5 @@
+import { easeInOutCubic } from "./easing";
+
 export class AnimationController {
   private step: number = 0; /** 経過Frame */
   private delay: number;
@@ -28,7 +30,9 @@ export class AnimationController {
       return 0;
     }
 
-    return (this.step - this.delay) / (this.duration - this.delay);
+    return easeInOutCubic(
+      (this.step - this.delay) / (this.duration - this.delay)
+    );
   }
 
   public isCompleted() {
