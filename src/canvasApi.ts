@@ -28,13 +28,13 @@ function renderTextContent(): [HTMLCanvasElement, CanvasRenderingContext2D] {
 function textToParticles(
   canvas: HTMLCanvasElement,
   context: CanvasRenderingContext2D
-) {
+): DotActor[] {
   const dots: DotActor[] = [];
   const { width, height } = canvas;
 
   // const timeline = gsap.timeline({ repeat: -1, yoyo: true });
 
-  const MAX_DIFFUSION_PX = 500;
+  const MAX_DIFFUSION_PX = 250;
 
   for (let i = 0; i < width * height; i++) {
     const x = i % width;
@@ -48,7 +48,7 @@ function textToParticles(
 
     const dstX = x + MAX_DIFFUSION_PX * (Math.random() - 0.5);
     const dstY = y + MAX_DIFFUSION_PX * (Math.random() - 0.5);
-    const sizePx = 3;
+    const sizePx = 1;
     dots.push(
       new DotActor([x, y], [dstX, dstY], [sizePx, sizePx], alpha / 255)
     );
