@@ -1,0 +1,116 @@
+import { convertCoordsToNdc2D } from "../../lib/webgpu/coord";
+
+type TextParticleData = {
+  x: number;
+  y: number;
+  color: [number, number, number];
+};
+
+export default class TextParticle {
+  _particles: TextParticleData[];
+  _endPosList: { x: number; y: number }[] = [];
+
+  constructor(text: string, canvasSize: [width: number, height: number]) {
+    this._particles = this._convertTextToParticles(text, canvasSize);
+    if (this._particles.length === 0) {
+      throw new Error("No particles generated from the text.");
+    }
+  }
+
+  public get data(): ReadonlyArray<TextParticleData> {
+    return this._particles;
+  }
+
+  public get count(): number {
+    return this._particles.length;
+  }
+
+  public get endPosList(): ReadonlyArray<{ x: number; y: number }> {
+    return this._endPosList;
+  }
+
+  // 拡散先はランダムに決定する
+  _createEndPos(w: number, h: number) {
+    return {
+      x: (Math.random() - 0.5) * w,
+      y: (Math.random() - 0.5) * h,
+    };
+  }
+
+  _renderTextOffscreen(
+    text: string,
+    canvasSize: [width: number, height: number],
+    fontSize: number
+  ): {
+    canvas: HTMLCanvasElement;
+    ctx: CanvasRenderingContext2D;
+  } {
+    const off = document.createElement("canvas");
+    const w = canvasSize[0];
+    const h = canvasSize[1];
+    off.width = w;
+    off.height = h;
+    const ctx = off.getContext("2d")!;
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, w, h);
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.fillStyle = "white";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, w / 2, h / 2);
+
+    return {
+      canvas: off,
+      ctx,
+    };
+  }
+
+  _convertTextToParticles(
+    text: string,
+    canvasSize: [width: number, height: number],
+    fontSize = 120
+  ): TextParticleData[] {
+    console.log(canvasSize, fontSize);
+    const { canvas: offCanvas, ctx } = this._renderTextOffscreen(
+      text,
+      canvasSize,
+      fontSize
+    );
+    const w = offCanvas.width;
+    const h = offCanvas.height;
+
+    const img = ctx.getImageData(0, 0, w, h);
+    const particles: {
+      x: number;
+      y: number;
+      color: [number, number, number];
+    }[] = [];
+
+    for (let y = 0; y < h; y += 2) {
+      for (let x = 0; x < w; x += 2) {
+        const idx = (y * w + x) * 4;
+        const alpha = img.data[idx + 3];
+        if (alpha > 128) {
+          const r = img.data[idx] / 255;
+          const g = img.data[idx + 1] / 255;
+          const b = img.data[idx + 2] / 255;
+          // particles.push({
+          //   x: x - w / 2,
+          //   y: -(y - h / 2),
+          //   color: [r, g, b],
+          // });
+          // const [posX, posY] = convertCoordsToNdc2D(x, y, w, h);
+
+          particles.push({
+            x,
+            y,
+            color: [r, g, b],
+          });
+
+          this._endPosList.push(this._createEndPos(w, h));
+        }
+      }
+    }
+    return particles;
+  }
+}

@@ -1,4 +1,4 @@
-import { clamp } from "../../lib/math/range";
+import { clamp } from "../lib/math/range";
 export type DrawContext = {
   gl: WebGL2RenderingContext;
   uTimeLoc: WebGLUniformLocation;

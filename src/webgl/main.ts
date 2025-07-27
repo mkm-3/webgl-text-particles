@@ -2,10 +2,13 @@ import vertexShaderCode from "./shaders/vertex.vs?raw";
 import fragmentShaderCode from "./shaders/fragment.fs?raw";
 import { webgl2 } from "../lib/webgl/utils";
 import { assertNonNullable } from "../lib/types/assertion";
-import { draw, DrawContext } from "./effect/draw";
-import { AnimationContext, startAnimation } from "./effect/animation";
-import { REPEAT_INTERVAL_MS, TIME_DELTA } from "./effect/constants";
-import TextParticle from "../lib/particle/TextParticle";
+import { draw, DrawContext } from "./draw";
+import TextParticle from "../effect/particle/TextParticle";
+import {
+  AnimationContext,
+  startAnimation,
+} from "../effect/animation/animation";
+import { REPEAT_INTERVAL_MS, TIME_DELTA } from "../effect/animation/constants";
 
 function main() {
   // main.ts
@@ -18,8 +21,6 @@ function main() {
     throw new Error("NO canvas element has been found.");
   }
 
-  document.body.style.margin = "0";
-  document.body.appendChild(canvas);
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
 
@@ -29,7 +30,10 @@ function main() {
   // -----------------------------------------
   // 1. Canvas2Dで文字ピクセル抽出
   // -----------------------------------------
-  const particle = new TextParticle("Hello, WebGL!");
+  const particle = new TextParticle("Hello, WebGL!", [
+    canvas.width,
+    canvas.height,
+  ]);
 
   // 拡散先はランダム
   const targets = particle.data.map(() => ({

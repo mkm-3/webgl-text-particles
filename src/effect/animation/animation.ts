@@ -6,6 +6,8 @@ export type AnimationContext = {
   progress: number;
   timeDelta: number;
   onDraw: (progress: number) => void;
+  enableLog?: boolean;
+  repeatCount?: number;
 };
 
 export function updateAnimation(ctx: AnimationContext) {
@@ -14,11 +16,12 @@ export function updateAnimation(ctx: AnimationContext) {
   ctx.progress = clamp(PROGRESS_MIN, ctx.progress + timeDelta, PROGRESS_MAX); // 0→1へ
   ctx.onDraw(ctx.progress);
 
-  const isProgressEnd = ctx.progress >= 1.0 || ctx.progress <= 0;
-  console.log("updateAnimation(), progress is ", ctx.progress);
+  const isProgressEnd =
+    ctx.repeatCount != null && (ctx.progress >= 1.0 || ctx.progress <= 0);
+  ctx.enableLog && console.log("updateAnimation(), progress is ", ctx.progress);
 
   if (isProgressEnd) {
-    console.log("animation ended.");
+    ctx.enableLog && console.log("animation ended.");
     onAnimationEnd(ctx);
     return;
   }
@@ -29,6 +32,7 @@ export function updateAnimation(ctx: AnimationContext) {
 }
 
 function onAnimationEnd(ctx: AnimationContext) {
+  ctx.enableLog && console.log("onAnimationEnd(), progress is ", ctx.progress);
   const isReversed = ctx.progress <= 0;
   ctx.timeDelta = isReversed ? TIME_DELTA : -TIME_DELTA;
 
