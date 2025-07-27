@@ -5,7 +5,7 @@ import { assertNonNullable } from "../lib/types/assertion";
 import { draw, DrawContext } from "./effect/draw";
 import { AnimationContext, startAnimation } from "./effect/animation";
 import { REPEAT_INTERVAL_MS, TIME_DELTA } from "./effect/constants";
-import { getTextParticles } from "./effect/particle";
+import TextParticle from "../lib/particle/TextParticle";
 
 function main() {
   // main.ts
@@ -29,11 +29,10 @@ function main() {
   // -----------------------------------------
   // 1. Canvas2Dで文字ピクセル抽出
   // -----------------------------------------
-  const particles = getTextParticles("Hello World !");
-  const particleCount = particles.length;
+  const particle = new TextParticle("Hello, WebGL!");
 
   // 拡散先はランダム
-  const targets = particles.map(() => ({
+  const targets = particle.data.map(() => ({
     x: (Math.random() - 0.5) * canvas.width,
     y: (Math.random() - 0.5) * canvas.height,
   }));
@@ -63,8 +62,8 @@ function main() {
   const endPositions: number[] = [];
   const colors: number[] = [];
 
-  for (let i = 0; i < particleCount; i++) {
-    const p = particles[i];
+  for (let i = 0; i < particle.count; i++) {
+    const p = particle.data[i];
     const tgt = targets[i];
     startPositions.push(p.x, p.y);
     endPositions.push(tgt.x, tgt.y);
@@ -85,7 +84,7 @@ function main() {
     gl,
     uTimeLoc: assertNonNullable(uTimeLoc),
     uScreenLoc: assertNonNullable(uScreenLoc),
-    particleCount,
+    particleCount: particle.count,
     screenSize: [canvas.width, canvas.height],
   };
 
