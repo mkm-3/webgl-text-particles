@@ -2,6 +2,7 @@ import TextParticle from "../effect/particle/TextParticle";
 import { assertNonNullable } from "../lib/types/assertion";
 import shaderCode from "./shaders/shader.wgsl?raw";
 import { DrawContext, startLoop } from "./draw";
+import { initGpu } from "../lib/webgpu/init";
 
 async function main() {
   const canvas = assertNonNullable<HTMLCanvasElement>(
@@ -13,27 +14,7 @@ async function main() {
     throw new Error("NO canvas element has been found.");
   }
 
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-
-  if (!navigator.gpu) {
-    throw new Error("WebGPU not supported");
-  }
-
-  const adapter = await navigator.gpu.requestAdapter();
-  const device = await adapter?.requestDevice();
-  const wg = canvas.getContext("webgpu");
-
-  if (!wg || !device) {
-    throw new Error("Failed to get WebGPU context or device");
-  }
-
-  const format = navigator.gpu.getPreferredCanvasFormat();
-  wg.configure({
-    device,
-    format,
-    alphaMode: "opaque",
-  });
+  const { device, wg, format } = await initGpu(canvas);
 
   const particle = new TextParticle("Hello, WebGPU!", [
     canvas.width,
