@@ -1,5 +1,3 @@
-import { convertCoordsToNdc2D } from "../../lib/webgpu/coord";
-
 type TextParticleData = {
   x: number;
   y: number;
@@ -9,6 +7,7 @@ type TextParticleData = {
 export default class TextParticle {
   _particles: TextParticleData[];
   _endPosList: { x: number; y: number }[] = [];
+  _offscreen = document.createElement("canvas");
 
   constructor(text: string, canvasSize: [width: number, height: number]) {
     this._particles = this._convertTextToParticles(text, canvasSize);
@@ -32,8 +31,8 @@ export default class TextParticle {
   // 拡散先はランダムに決定する
   _createEndPos(w: number, h: number) {
     return {
-      x: (Math.random() - 0.5) * w,
-      y: (Math.random() - 0.5) * h,
+      x: Math.random() * w,
+      y: Math.random() * h,
     };
   }
 
@@ -41,11 +40,8 @@ export default class TextParticle {
     text: string,
     canvasSize: [width: number, height: number],
     fontSize: number
-  ): {
-    canvas: HTMLCanvasElement;
-    ctx: CanvasRenderingContext2D;
-  } {
-    const off = document.createElement("canvas");
+  ) {
+    const off = this._offscreen;
     const w = canvasSize[0];
     const h = canvasSize[1];
     off.width = w;
@@ -58,11 +54,6 @@ export default class TextParticle {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(text, w / 2, h / 2);
-
-    return {
-      canvas: off,
-      ctx,
-    };
   }
 
   _convertTextToParticles(
@@ -71,13 +62,15 @@ export default class TextParticle {
     fontSize = 120
   ): TextParticleData[] {
     console.log(canvasSize, fontSize);
-    const { canvas: offCanvas, ctx } = this._renderTextOffscreen(
-      text,
-      canvasSize,
-      fontSize
-    );
-    const w = offCanvas.width;
-    const h = offCanvas.height;
+    this._renderTextOffscreen(text, canvasSize, fontSize);
+
+    const w = this._offscreen.width;
+    const h = this._offscreen.height;
+
+    const ctx = this._offscreen.getContext("2d");
+    if (!ctx) {
+      throw new Error("Failed to get 2D context from offscreen canvas.");
+    }
 
     const img = ctx.getImageData(0, 0, w, h);
     const particles: {
@@ -86,29 +79,21 @@ export default class TextParticle {
       color: [number, number, number];
     }[] = [];
 
-    for (let y = 0; y < h; y += 2) {
-      for (let x = 0; x < w; x += 2) {
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
         const idx = (y * w + x) * 4;
-        const alpha = img.data[idx + 3];
-        if (alpha > 128) {
-          const r = img.data[idx] / 255;
-          const g = img.data[idx + 1] / 255;
-          const b = img.data[idx + 2] / 255;
-          // particles.push({
-          //   x: x - w / 2,
-          //   y: -(y - h / 2),
-          //   color: [r, g, b],
-          // });
-          // const [posX, posY] = convertCoordsToNdc2D(x, y, w, h);
+        // const alpha = img.data[idx + 3];
+        const r = img.data[idx] / 255;
+        const g = img.data[idx + 1] / 255;
+        const b = img.data[idx + 2] / 255;
 
-          particles.push({
-            x,
-            y,
-            color: [r, g, b],
-          });
+        particles.push({
+          x,
+          y,
+          color: [r, g, b],
+        });
 
-          this._endPosList.push(this._createEndPos(w, h));
-        }
+        this._endPosList.push(this._createEndPos(w, h));
       }
     }
     return particles;
