@@ -1,11 +1,7 @@
 import TextParticle from "../effect/particle/TextParticle";
 import { assertNonNullable } from "../lib/types/assertion";
 import shaderCode from "./shaders/shader.wgsl?raw";
-import { draw, DrawContext } from "./draw";
-import {
-  AnimationContext,
-  startAnimation,
-} from "../effect/animation/animation";
+import { DrawContext, startLoop } from "./draw";
 
 async function main() {
   const canvas = assertNonNullable<HTMLCanvasElement>(
@@ -52,13 +48,17 @@ async function main() {
     vertexData.push(p.x, p.y, end.x, end.y, ...p.color);
   }
 
-  const vertexBuffer = device.createBuffer({
-    size: vertexData.length * 4, // 4 bytes per float
-    usage: GPUBufferUsage.VERTEX,
+  console.log(vertexData);
+
+  const vertexDataSize = vertexData.length * 4; // 4 bytes per float
+  const vertexBufferGpu = device.createBuffer({
+    size: vertexDataSize,
+    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
     mappedAtCreation: true,
   });
-  new Float32Array(vertexBuffer.getMappedRange()).set(vertexData);
-  vertexBuffer.unmap();
+
+  new Float32Array(vertexBufferGpu.getMappedRange()).set(vertexData);
+  vertexBufferGpu.unmap();
 
   // pipeline setup
   const shaderModule = device.createShaderModule({
@@ -73,10 +73,11 @@ async function main() {
       buffers: [
         {
           arrayStride: 7 * 4, // 7要素 * 4byte = 28byte
+          // float32x3があるので、16バイトアライメントで設定する必要がある
           attributes: [
             { shaderLocation: 0, offset: 0, format: "float32x2" }, // startX, startY
             { shaderLocation: 1, offset: 2 * 4, format: "float32x2" }, // endX, endY
-            { shaderLocation: 2, offset: 3 * 4, format: "float32x3" }, // r, g, b
+            { shaderLocation: 2, offset: 4 * 4, format: "float32x3" }, // r, g, b
           ],
         },
       ],
@@ -96,49 +97,45 @@ async function main() {
   });
 
   // Uniform variable for time and screen size
-  const uniformBuffer = device.createBuffer({
+  const uniformBufferGpu = device.createBuffer({
     label: "Uniform Buffer",
     size: 16, // 4 (float) + 8 (vec2) = 12 bytes, rounded up to 16 for alignment
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
-  const bindGroup = device.createBindGroup({
+  const uniBindGroup = device.createBindGroup({
     label: "Uniform Bind Group",
     layout: pipeline.getBindGroupLayout(0),
     entries: [
       {
         binding: 0 /** @binding(xxx) で指定するid */,
-        resource: { buffer: uniformBuffer },
+        resource: { buffer: uniformBufferGpu },
       },
     ],
   });
+  // アラインメントを考慮してバッファを作成する
+  // updateの中で使いまわす
+  const F32_BPE = Float32Array.BYTES_PER_ELEMENT; // Bytes per element (float32)
+  const uniBufferArray = new ArrayBuffer(
+    F32_BPE * 1 /** time */ +
+      F32_BPE * 1 /** padding for time (needs 8 alignment for vector2f) */ +
+      F32_BPE * 2 /** screenSize */
+  );
 
-  const staticDrawContext: Omit<DrawContext, "progress"> = {
+  const drawContext: DrawContext = {
     wg,
     device,
     pipeline,
-    uniformBuffer,
-    bindGroup,
-    vertexBuffer,
+    uniBufferGpu: uniformBufferGpu,
+    uniBufferArray,
+    uniBindGroup,
+    vertexBufferGpu,
     vertexCount: particle.count,
-    screenSize: [canvas.width, canvas.height],
-  };
-
-  const animationContext: AnimationContext = {
-    repeatIntervalMs: 16, // roughly 60 FPS
-    progress: 0,
-    timeDelta: 16,
-    onDraw: (progress) => {
-      const drawContext: DrawContext = {
-        ...staticDrawContext,
-        progress,
-      };
-
-      draw(drawContext);
-    },
+    uniTime: 0,
     enableLog: true,
   };
 
-  startAnimation(animationContext);
+  // start drawing
+  startLoop(drawContext);
 }
 
 main();
